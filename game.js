@@ -77,7 +77,17 @@ const sfx = {
 // ---------- 상태 ----------
 let G = L.newGame();
 let state = 'title';                           // title · play · paused · over
-let best = Number(store.get('invadersBest')) || 0;
+let level = store.get('invadersLevel') === 'easy' ? 'easy' : 'normal';              // 난이도: 보통(고전 규칙) · 쉬움. 기록은 난이도마다 따로
+const bestKey = (lv) => (lv === 'easy' ? 'invadersBestEasy' : 'invadersBest');
+let best = Number(store.get(bestKey(level))) || 0;
+const LV_DESC = { easy: '목숨 5개 · 외계인이 25% 느려요 · 외계인 총알은 느리고 동시에 2발까지', normal: '고전 그대로: 목숨 3개 · 외계인 총알 3발' };
+function levelRowHtml() { return ['easy', 'normal'].map((k) => `<button class="lv${k === level ? ' on' : ''}" data-level="${k}">${L.LEVELS[k].name}</button>`).join(''); }
+function setLevel(k) {
+  level = k; store.set('invadersLevel', k); best = Number(store.get(bestKey(k))) || 0;
+  for (const b of document.querySelectorAll('#overlay .lv')) b.classList.toggle('on', b.dataset.level === k);
+  const d = $('lvDesc'); if (d) d.textContent = LV_DESC[k];
+}
+function bindLevelButtons() { for (const b of document.querySelectorAll('#overlay .lv')) b.onclick = (e) => { e.preventDefault(); setLevel(b.dataset.level); }; }
 let fxs = [];
 let banner = { text: '', t: 0 };
 let clock = 0, moved = 0, lastX = 0, ufoSnd = 0;
@@ -85,7 +95,7 @@ const held = new Set();
 let bLeft = false, bRight = false, bFire = false;
 
 /* @test-hooks:start */
-window.__si = { get G() { return G; }, get state() { return state; }, L, setG(g) { G = g; }, step: (dt) => update(dt) };
+window.__si = { get level() { return level; }, setLevel, get G() { return G; }, get state() { return state; }, L, setG(g) { G = g; }, step: (dt) => update(dt) };
 /* @test-hooks:end */
 
 // ---------- 입력 ----------
@@ -115,11 +125,11 @@ const has = (...ks) => ks.some((k) => held.has(k));
 const readInput = () => ({ left: has('ArrowLeft', 'a', 'A') || bLeft, right: has('ArrowRight', 'd', 'D') || bRight, fire: has(' ', 'z', 'Z', 'j', 'J', 'ArrowUp') || bFire });
 
 // ---------- 흐름 ----------
-function showOverlay(html) { const o = $('overlay'); o.innerHTML = html; o.classList.remove('hidden'); o.querySelector('button').onclick = onOverlayButton; }
+function showOverlay(html) { const o = $('overlay'); o.innerHTML = html; o.classList.remove('hidden'); const sb = o.querySelector('#startBtn'); if (sb) sb.onclick = onOverlayButton; bindLevelButtons(); }
 function hideOverlay() { $('overlay').classList.add('hidden'); }
 function setBanner(text, t = 2) { banner = { text, t }; }
 function startGame() {
-  G = L.newGame();
+  G = L.newGame(Math.random, 1, level);
   if (/[?&]tutorial=1/.test(location.search)) G.lives = 9;          // 튜토리얼에서는 맞아도 계속 해 볼 수 있게
   fxs = []; held.clear(); moved = 0; lastX = G.player.x;
   state = 'play';
@@ -138,9 +148,9 @@ function resume() { if (state !== 'paused') return; state = pausedFrom; hideOver
 function gameOver(invaded) {
   state = 'over';
   const rec = G.score > best;
-  if (rec) { best = G.score; store.set('invadersBest', String(best)); }
+  if (rec) { best = G.score; store.set(bestKey(level), String(best)); }
   sfx.over();
-  showOverlay(`<h2>GAME OVER</h2><p class="big">${G.score.toLocaleString()}점</p><p>${invaded ? '외계인이 땅에 닿았어요! ' : ''}웨이브 ${G.wave}${rec ? '<br>🏆 최고 기록!' : ''}</p><button id="startBtn">다시 하기</button>`);
+  showOverlay(`<h2>GAME OVER</h2><p class="big">${G.score.toLocaleString()}점</p><p>${invaded ? '외계인이 땅에 닿았어요! ' : ''}웨이브 ${G.wave}${rec ? '<br>🏆 최고 기록!' : ''}</p><p class="help">난이도: ${L.LEVELS[level].name}</p><button id="startBtn">다시 하기</button><div class="lvrow">${levelRowHtml()}</div><p class="lvdesc" id="lvDesc">${LV_DESC[level]}</p>`);
 }
 
 function handleEvents() {
@@ -245,6 +255,7 @@ function toggleMute() {
 $('muteBtn').onclick = (e) => { e.currentTarget.blur(); toggleMute(); };
 $('pauseBtn').onclick = (e) => { e.currentTarget.blur(); state === 'paused' ? resume() : pause(); };
 $('startBtn').onclick = onOverlayButton;
+$('lvRow').innerHTML = levelRowHtml(); bindLevelButtons(); setLevel(level);
 $('muteBtn').textContent = muted ? '🔇' : '🔊';
 
 fit();

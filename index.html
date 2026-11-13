@@ -24,6 +24,10 @@
   #overlay .big { font-size:18px; font-weight:800; color:#ffd23a; }
   #overlay .help { font-size:12px; color:#bdbdbd; line-height:1.7; }
   #overlay button { margin-top:6px; background:linear-gradient(180deg,#c8ffc8,#4ac84a); color:#032403; font-weight:900; font-size:17px; border:none; border-radius:999px; padding:12px 34px; box-shadow:0 4px 0 #1a7a1a; cursor:pointer; }
+  #overlay .lvrow { display:flex; gap:8px; justify-content:center; margin-top:2px; }
+  #overlay .lvrow button.lv { margin:0; padding:7px 18px; font-size:14px; background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.3); box-shadow:none; }
+  #overlay .lvrow button.lv.on { background:rgba(138,255,138,.35); border-color:#8aff8a; color:#fff; }
+  #overlay .lvdesc { font-size:12px; color:#bdbdbd; min-height:18px; }
   #overlay button:active { transform:translateY(3px); box-shadow:0 1px 0 #1a7a1a; }
   #top { position:absolute; right:3px; top:2px; display:flex; gap:6px; z-index:2; }
   #top button { position:relative; background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.25); color:#fff; width:30px; height:30px; border-radius:8px; font-size:13px; cursor:pointer; }
@@ -54,6 +58,8 @@
         <span class="pc">⌨️ ← → 이동 · 스페이스 발사 · P 일시정지 · M 소리</span>
         <span class="touch">👆 왼쪽 ◀ ▶ 로 이동 · 빨간 버튼으로 발사</span>
       </div>
+      <div class="lvrow" id="lvRow"></div>
+      <p class="lvdesc" id="lvDesc"></p>
       <button id="startBtn">시작하기</button>
     </div>
   </div>

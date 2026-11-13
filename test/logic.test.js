@@ -241,3 +241,48 @@ test('random play never breaks the rules (fuzz)', () => {
     }
   }
 });
+
+test('levels: normal is the classic rules, easy has more lives, slower invaders, slower bullets and at most two at once', () => {
+  const n = L.newGame(L.rng(1), 1, 'normal'), e = L.newGame(L.rng(1), 1, 'easy'), d = L.newGame(L.rng(1));
+  assert.strictEqual(n.level, 'normal'); assert.strictEqual(d.level, 'normal', 'default is normal');
+  assert.strictEqual(n.lives, 3); assert.strictEqual(e.lives, 5);
+  assert.strictEqual(L.newGame(L.rng(1), 1, 'nonsense').level, 'normal', 'an unknown level falls back to normal');
+  assert.strictEqual(L.LEVELS.normal.bulletSpeed, L.EBULLET_SPEED); assert.strictEqual(L.LEVELS.normal.maxBullets, L.MAX_EBULLETS); assert.strictEqual(L.LEVELS.normal.pace, 1);
+  // 같은 시간 동안 줄이 덜 움직인다 (맨 앞 외계인의 가로 이동 거리)
+  const move = (st) => { const a = st.inv[0], x0 = a.x, y0 = a.y; for (let i = 0; i < 300; i++) L.step(st, 1 / 60, {}); return Math.abs(a.x - x0) + Math.abs(a.y - y0); };
+  const mn = L.newGame(L.rng(2), 1, 'normal'), me = L.newGame(L.rng(2), 1, 'easy'); mn.player.invuln = me.player.invuln = 999;
+  const dn = move(mn), de = move(me);
+  assert.ok(de < dn * 0.9 && de > dn * 0.5, 'easy invaders move about 75 percent as much: ' + de + ' vs ' + dn);
+});
+
+test('levels: easy invader bullets fall slower and at most two can be in the air; normal allows three', () => {
+  for (const [level, max, speed] of [['normal', 3, 96], ['easy', 2, 78]]) {
+    const st = L.newGame(L.rng(5), 1, level); st.player.invuln = 999;
+    for (let i = 0; i < 12; i++) L.fireInvader(st);
+    assert.strictEqual(st.ebullets.length, max, level + ' cap on bullets in the air');
+    const first = st.ebullets[0], y0 = first.y; st.fireT = 99; for (let i = 0; i < 5; i++) L.step(st, 0.05, {});
+    assert.ok(Math.abs((first.y - y0) / 0.25 - speed) < 1, level + ' bullet speed ' + (first.y - y0) / 0.25);
+  }
+});
+
+test('levels: a skilled-enough scripted player lasts longer on easy than on normal', () => {
+  const play = (level, seed) => {
+    const rnd = L.rng(seed), st = L.newGame(L.rng(seed * 7 + 1), 1, level); let f = 0, dir = 0;
+    while (st.phase !== 'over' && f < 60 * 400) {
+      f++;
+      if (f % 12 === 0 && st.phase === 'play') {
+        const p = st.player, alive = st.inv.filter((i) => i.alive), cols = {};
+        for (const i of alive) if (!cols[i.col] || i.y > cols[i.col].y) cols[i.col] = i;
+        let best = null, bd = 1e9; for (const k in cols) { const d = Math.abs(cols[k].x - p.x); if (d < bd) { bd = d; best = cols[k]; } }
+        const thr = (x) => st.ebullets.some((b) => b.y > L.PLAYER_Y - 80 && b.y < L.PLAYER_Y + 4 && Math.abs(b.x - x) < 11);
+        let want = 0; if (best) { const dx = best.x - p.x; want = Math.abs(dx) <= 2 ? 0 : dx > 0 ? 1 : -1; }
+        if (rnd() < 0.8) { const step = 12; if (thr(p.x)) { const l = !thr(p.x - step - 4) && p.x - step > 12, r = !thr(p.x + step + 4) && p.x + step < L.W - 12; want = l && r ? (want || (rnd() < 0.5 ? -1 : 1)) : l ? -1 : r ? 1 : want; } else if (want && thr(p.x + want * (step + 4))) want = 0; }
+        dir = want;
+      }
+      L.step(st, 1 / 60, { left: dir < 0, right: dir > 0, fire: st.phase === 'play' && rnd() < 0.9 });
+    }
+    return st.score;
+  };
+  let n = 0, e = 0; for (let s = 1; s <= 8; s++) { n += play('normal', s * 13); e += play('easy', s * 13); }
+  assert.ok(e > n * 1.15, 'easy total score ' + e + ' vs normal ' + n);
+});

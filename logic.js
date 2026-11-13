@@ -11,6 +11,11 @@ const LOGIC_INVADERS = (() => {
   const EBULLET_SPEED = 96, MAX_EBULLETS = 3;
   const GROUND = 238;
   const START_LIVES = 3, EXTRA_LIFE_AT = 1500;
+  // 난이도: 보통은 고전 규칙 그대로. 쉬움은 목숨 5개 · 외계인 이동 속도 75% · 외계인 총알이 느리고 동시에 2발까지
+  const LEVELS = {
+    normal: { name: '보통', lives: START_LIVES, pace: 1, bulletSpeed: EBULLET_SPEED, maxBullets: MAX_EBULLETS },
+    easy: { name: '쉬움', lives: 5, pace: 0.75, bulletSpeed: 78, maxBullets: 2 },
+  };
   const UFO_Y = 52, UFO_SPEED = 50, UFO_EVERY = 25.6, UFO_MIN_INVADERS = 8;
   const DYING = 1.6, CLEAR_DELAY = 1.6;
   const POINTS = { 0: 30, 1: 20, 2: 20, 3: 10, 4: 10 };    // 줄(0 = 맨 위)별 점수
@@ -45,8 +50,9 @@ const LOGIC_INVADERS = (() => {
     return { x: b.x, y: b.y, cells };
   }
 
-  function newGame(rand = Math.random, wave = 1) {
-    const st = { rand, score: 0, lives: START_LIVES, wave, t: 0, events: [], extra: false, shots: 0, phase: 'play', ufoT: UFO_EVERY, ufo: null, ebullets: [], bullet: null };
+  function newGame(rand = Math.random, wave = 1, level = 'normal') {
+    const cfg = LEVELS[level] || LEVELS.normal;
+    const st = { rand, level: LEVELS[level] ? level : 'normal', cfg, score: 0, lives: cfg.lives, wave, t: 0, events: [], extra: false, shots: 0, phase: 'play', ufoT: UFO_EVERY, ufo: null, ebullets: [], bullet: null };
     st.bunkers = BUNKERS.map(makeBunker);
     startWave(st, wave);
     return st;
@@ -125,7 +131,7 @@ const LOGIC_INVADERS = (() => {
   // ---- 외계인 총알 ----
   function reloadTime(st) { return Math.max(0.35, 1.3 - st.score / 4000 - (55 - aliveCount(st)) * 0.006); }
   function fireInvader(st) {
-    if (st.ebullets.length >= MAX_EBULLETS) return;
+    if (st.ebullets.length >= st.cfg.maxBullets) return;
     const kinds = ['rolling', 'plunger', 'squiggly'].filter((k) => !st.ebullets.some((b) => b.kind === k));
     if (!kinds.length) return;
     const kind = kinds[Math.floor(st.rand() * kinds.length)];
@@ -174,7 +180,7 @@ const LOGIC_INVADERS = (() => {
     // UFO
     updateUfo(st, h);
     // 외계인 이동 (1/60초마다 한 마리)
-    st.tickT += h;
+    st.tickT += h * st.cfg.pace;
     while (st.tickT >= TICK && st.phase === 'play') {
       st.tickT -= TICK;
       tickInvaders(st);
@@ -183,7 +189,7 @@ const LOGIC_INVADERS = (() => {
     // 외계인 사격
     st.fireT -= h;
     if (st.fireT <= 0) { fireInvader(st); st.fireT = reloadTime(st) * (0.7 + st.rand() * 0.6); }
-    for (const b of st.ebullets) { b.y += EBULLET_SPEED * h; b.frame = (Math.floor(st.t * 10)) % 4; }
+    for (const b of st.ebullets) { b.y += st.cfg.bulletSpeed * h; b.frame = (Math.floor(st.t * 10)) % 4; }
     collisions(st);
     // 판 끝
     if (st.phase === 'play' && aliveCount(st) === 0) {
@@ -239,7 +245,7 @@ const LOGIC_INVADERS = (() => {
   }
 
   return {
-    W, H, COLS, ROWS, COL_GAP, ROW_GAP, FORM_LEFT, FORM_TOP, STEP, DROP, TICK, PLAYER_Y, PLAYER_W, PLAYER_SPEED, BULLET_SPEED, EBULLET_SPEED, MAX_EBULLETS, GROUND, START_LIVES, EXTRA_LIFE_AT,
+    W, H, COLS, ROWS, COL_GAP, ROW_GAP, FORM_LEFT, FORM_TOP, STEP, DROP, TICK, PLAYER_Y, PLAYER_W, PLAYER_SPEED, BULLET_SPEED, EBULLET_SPEED, MAX_EBULLETS, GROUND, START_LIVES, EXTRA_LIFE_AT, LEVELS,
     UFO_Y, UFO_SPEED, UFO_EVERY, UFO_MIN_INVADERS, DYING, CLEAR_DELAY, POINTS, START_DROPS, BUNKERS, BW, BH,
     rng, newGame, startWave, step, aliveCount, ufoPoints, killPlayer, fireInvader, reloadTime, makeBunker,
   };
